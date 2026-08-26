@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SNS 자동화 키트 — 설치 마법사</title>
+<script src="https://cdn.jsdelivr.net/npm/libsodium-sumo@0.7.15/dist/modules-sumo/libsodium-sumo.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers-sumo@0.7.15/dist/modules-sumo/libsodium-wrappers.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f8; --card: #ffffff; --border: #e4e4e7; --text: #18181b;
+    --muted: #71717a; --accent: #2563eb; --accent-dark: #1d4ed8;
+    --ok: #16a34a; --err: #dc2626; --warn: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: var(--bg); color: var(--text); margin: 0; padding: 24px 16px 80px; line-height: 1.6; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 4px 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .notice { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px 16px;
+    font-size: 13.5px; color: #1e3a8a; margin-bottom: 24px; }
+  .notice b { color: #1e40af; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .card .desc { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .step-badge { display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: white;
+    font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  label .opt { font-weight: 400; color: var(--muted); font-size: 12px; }
+  input[type=text], input[type=password], select { width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13.5px; background: #fafafa; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: white; }
+  textarea { width: 100%; min-height: 70px; padding: 9px 11px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; font-family: monospace; background: #fafafa; resize: vertical; }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { background: var(--accent); color: white; border: none; border-radius: 9px;
+    padding: 11px 18px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { background: #d4d4d8; cursor: not-allowed; }
+  button.secondary { background: white; color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: #f4f4f5; }
+  .group-title { font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.03em; margin: 18px 0 2px; padding-top: 12px; border-top: 1px dashed var(--border); }
+  .group-title:first-of-type { border-top: none; padding-top: 0; margin-top: 4px; }
+  .substeps { list-style: none; padding: 0; margin: 0 0 10px; }
+  .substeps li { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; font-size: 13.5px; color: var(--text); }
+  .substeps .num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--accent);
+    color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .log { margin-top: 14px; font-size: 13px; font-family: monospace; white-space: pre-wrap;
+    background: #0b0b0f; color: #d4d4d8; border-radius: 10px; padding: 12px 14px; max-height: 280px; overflow-y: auto; }
+  .log .ok { color: #4ade80; } .log .err { color: #f87171; } .log .warn { color: #fbbf24; }
+  .result-box { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-size: 13.5px; }
+  .result-box.show { display: block; }
+  .result-box.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+  .result-box.err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 32px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧙 SNS 자동화 키트 설치 마법사</h1>
+  <p class="sub">SETUP.md의 "저장소 만들기 + Secrets 20여 개 입력" 부분을 대신 해드립니다. 나머지(구글/메타 계정 만들기·동의)는 각 서비스 화면에서 직접 진행하셔야 합니다. (네이버 블로그는 API가 막혀있어 자동 연동이 없습니다 — 초안을 만들어드리면 직접 복사-붙여넣기만 하시면 됩니다.)</p>
+
+  <div class="notice">
+    🔒 <b>이 페이지는 순수 정적 HTML입니다.</b> 아래 입력하는 토큰/키는 이 브라우저에서 GitHub API(api.github.com)로, "설정값 확인" 기능을 쓰실 경우엔 구글 인증 서버(oauth2.googleapis.com, sheets.googleapis.com)로 직접 전송될 뿐, 어디에도 저장되거나 판매자 서버를 거치지 않습니다. 페이지를 새로고침하면 입력값은 전부 사라집니다.
+  </div>
+
+  <div class="notice" style="background:#fffbeb;border-color:#fde68a;color:#92400e;">
+    ⚠️ <b>템플릿 저장소는 비공개입니다.</b> 결제 후 판매자가 GitHub 계정을 협업자로 초대해드려야 2단계(저장소 만들기)가 됩니다. 아직 초대를 못 받으셨으면 판매자에게 문의해주세요.
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">1</span> GitHub 개인 액세스 토큰</h2>
+    <div class="desc" style="margin-bottom:6px;">아래 4단계만 순서대로 하시면 됩니다.</div>
+    <ol class="substeps">
+      <li><span class="num">1</span><span>아래 <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=sns-automation-kit-setup" target="_blank">파란 링크</a>를 클릭 — 새 탭이 열리고 이름·권한(<b>repo</b>, <b>workflow</b>)이 이미 체크되어 있습니다.</span></li>
+      <li><span class="num">2</span><span>그 페이지에서 <b>Expiration(만료 기간)</b>을 <b>7 days</b>로 선택하세요.</span></li>
+      <li><span class="num">3</span><span>페이지 맨 아래 초록색 <b>Generate token</b> 버튼을 클릭하세요.</span></li>
+      <li><span class="num">4</span><span><code>ghp_</code>로 시작하는 값이 딱 한 번 화면에 뜹니다 — 복사해서 이 페이지로 돌아와 아래 칸에 붙여넣으세요.</span></li>
+    </ol>
+    <div class="hint" style="margin-bottom:10px;">💡 설치가 끝나면 이 토큰은 GitHub 설정에서 바로 삭제(Revoke)해도 됩니다.</div>
+    <input type="password" id="pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">2</span> 내 저장소 만들기</h2>
+    <div class="desc">이 템플릿(gatilman/sosang-sns-kit)을 내 계정으로 복제합니다.</div>
+    <label>새 저장소 이름</label>
+    <input type="text" id="repoName" placeholder="내가게-sns자동화" />
+    <button class="secondary" id="btnCreateRepo" onclick="createRepo()">저장소 만들기</button>
+    <div class="result-box" id="repoResult"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">3</span> Secrets 값 입력</h2>
+    <div class="desc">SETUP.md 각 단계에서 발급받은 값을 여기 붙여넣으세요. <b>선택 항목은 안 쓸 채널이면 비워두면 됩니다</b>(그 채널만 자동으로 꺼집니다).</div>
+
+    <div class="group-title">필수 — AI 제공사 선택 + 구글 시트·드라이브</div>
+    <label>AI 제공사 <span class="opt">콘텐츠를 생성할 AI를 고르세요 — 글쓰기 지침서는 동일, API 키만 다릅니다</span></label>
+    <select id="aiProvider" onchange="onProviderChange()">
+      <option value="claude" selected>Claude (Anthropic) — 기본값, 검증됨</option>
+      <option value="gemini">Gemini (Google)</option>
+      <option value="gpt">GPT (OpenAI)</option>
+    </select>
+    <div class="hint" style="margin-bottom:10px;">⚠️ 여기서 고른 제공사와 구글시트 "설정" 탭의 "AI 제공사 선택" 값이 반드시 같아야 합니다. 아직 Claude만 실전 검증됐고, Gemini/GPT는 대표 확인 전까지는 시험 단계입니다.</div>
+
+    <div data-provider-key="claude">
+      <label>ANTHROPIC_API_KEY <span class="opt">필수(Claude 선택 시) · 콘텐츠 생성+댓글 응대 전부 이 키 하나</span></label>
+      <input type="password" data-secret="ANTHROPIC_API_KEY" />
+    </div>
+    <div data-provider-key="gemini" style="display:none;">
+      <label>GEMINI_API_KEY <span class="opt">필수(Gemini 선택 시)</span></label>
+      <input type="password" data-secret="GEMINI_API_KEY" />
+    </div>
+    <div data-provider-key="gpt" style="display:none;">
+      <label>OPENAI_API_KEY <span class="opt">필수(GPT 선택 시)</span></label>
+      <input type="password" data-secret="OPENAI_API_KEY" />
+    </div>
+
+    <label>GOOGLE_CLIENT_EMAIL <span class="opt">필수 · 서비스계정 client_email</span></label>
+    <input type="text" data-secret="GOOGLE_CLIENT_EMAIL" />
+    <label>GOOGLE_PRIVATE_KEY <span class="opt">필수 · JSON의 private_key, 줄바꿈 그대로</span></label>
+    <textarea data-secret="GOOGLE_PRIVATE_KEY" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+    <label>GOOGLE_SHEETS_SPREADSHEET_ID <span class="opt">필수 · 콘텐츠 관리 시트 ID</span></label>
+    <input type="text" data-secret="GOOGLE_SHEETS_SPREADSHEET_ID" />
+
+    <div class="group-title">필수 — 인스타그램/쓰레드</div>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:10px;">
+      <p style="font-size:12px;font-weight:700;color:#92400e;margin:0 0 6px;">🔑 먼저: 장기 토큰 만들기</p>
+      <p style="font-size:11px;color:#92400e;opacity:.8;margin:0 0 8px;line-height:1.5;">3단계 앱 시크릿과 방금 받은 토큰을 넣고 버튼을 누르면 새 탭에 등록할 값이 나옵니다(<code style="background:#fde68a;padding:1px 4px;border-radius:4px;">access_token</code> 값을 아래 칸에 붙여넣으세요). 쓰레드도 쓸 거면 쓰레드 토큰으로 바꿔 넣고 버튼만 다시 누르면 됩니다.</p>
+      <div class="row2" style="margin-bottom:8px;">
+        <input type="password" id="ttExchAppSecret" placeholder="앱 시크릿" style="font-size:12px;" />
+        <input type="password" id="ttExchShortToken" placeholder="방금 받은 토큰" style="font-size:12px;" />
+      </div>
+      <button type="button" onclick="openLongLivedTokenPage('instagram')" style="font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px solid #fde68a;background:#fff;cursor:pointer;margin-right:6px;">인스타그램용 만들기</button>
+      <button type="button" onclick="openLongLivedTokenPage('threads')" style="font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px solid #fde68a;background:#fff;cursor:pointer;">쓰레드용 만들기</button>
+    </div>
+
+    <div class="row2">
+      <div><label>INSTAGRAM_ACCESS_TOKEN <span class="opt">필수</span></label><input type="password" data-secret="INSTAGRAM_ACCESS_TOKEN" /></div>
+      <div><label>INSTAGRAM_ACCOUNT_ID <span class="opt">필수</span></label><input type="text" data-secret="INSTAGRAM_ACCOUNT_ID" /></div>
+    </div>
+    <div class="row2">
+      <div><label>THREADS_ACCESS_TOKEN <span class="opt">선택</span></label><input type="password" data-secret="THREADS_ACCESS_TOKEN" /></div>
+      <div><label>THREADS_ACCOUNT_ID <span class="opt">선택</span></label><input type="text" data-secret="THREADS_ACCOUNT_ID" /></div>
+    </div>
+
+    <div class="group-title">선택 — 유튜브 / 블로그스팟(공용 OAuth)</div>
+    <div class="row2">
+      <div><label>GOOGLE_OAUTH_CLIENT_ID <span class="opt">선택</span></label><input type="text" data-secret="GOOGLE_OAUTH_CLIENT_ID" /></div>
+      <div><label>GOOGLE_OAUTH_CLIENT_SECRET <span class="opt">선택</span></label><input type="password" data-secret="GOOGLE_OAUTH_CLIENT_SECRET" /></div>
+    </div>
+    <label>GOOGLE_OAUTH_REFRESH_TOKEN <span class="opt">선택 · get-google-oauth-refresh-token.ts 실행 결과</span></label>
+    <input type="password" data-secret="GOOGLE_OAUTH_REFRESH_TOKEN" />
+    <label>BLOGGER_BLOG_ID <span class="opt">선택 · 블로그스팟 쓸 때만</span></label>
+    <input type="text" data-secret="BLOGGER_BLOG_ID" />
+
+    <div class="group-title">필수 — Pexels / Cloudinary</div>
+    <label>PEXELS_API_KEY <span class="opt">필수</span></label>
+    <input type="password" data-secret="PEXELS_API_KEY" />
+    <div class="row2">
+      <div><label>CLOUDINARY_CLOUD_NAME <span class="opt">필수</span></label><input type="text" data-secret="CLOUDINARY_CLOUD_NAME" /></div>
+      <div><label>CLOUDINARY_API_KEY <span class="opt">필수</span></label><input type="password" data-secret="CLOUDINARY_API_KEY" /></div>
+    </div>
+    <label>CLOUDINARY_API_SECRET <span class="opt">필수</span></label>
+    <input type="password" data-secret="CLOUDINARY_API_SECRET" />
+
+    <div class="group-title">필수 — 라이선스</div>
+    <div class="row2">
+      <div><label>LICENSE_SHEET_ID <span class="opt">필수 · 판매자 제공</span></label><input type="text" data-secret="LICENSE_SHEET_ID" /></div>
+      <div><label>LICENSE_KEY <span class="opt">필수 · 판매자 제공</span></label><input type="password" data-secret="LICENSE_KEY" /></div>
+    </div>
+
+    <div class="group-title">선택 — 텔레그램 알림</div>
+    <div class="row2">
+      <div><label>TELEGRAM_BOT_TOKEN <span class="opt">선택</span></label><input type="password" data-secret="TELEGRAM_BOT_TOKEN" /></div>
+      <div><label>TELEGRAM_ADMIN_CHAT_ID <span class="opt">선택</span></label><input type="text" data-secret="TELEGRAM_ADMIN_CHAT_ID" /></div>
+    </div>
+
+    <div class="group-title">선택 — AI 나레이션 음성(Typecast)</div>
+    <div class="row2">
+      <div><label>TYPECAST_API_KEY <span class="opt">선택</span></label><input type="password" data-secret="TYPECAST_API_KEY" /></div>
+      <div><label>TYPECAST_VOICE_ID <span class="opt">선택 · 3-2단계에서 고른 목소리</span></label><input type="text" data-secret="TYPECAST_VOICE_ID" /></div>
+    </div>
+
+    <button id="btnUpload" onclick="uploadSecrets()">Secrets 전부 업로드</button>
+    <div class="log" id="uploadLog" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">4</span> 워크플로우 실행</h2>
+    <div class="desc">저장소/Secrets가 다 준비됐으면 필요한 워크플로우를 직접 실행해볼 수 있습니다. 구글시트 "설정" 탭이 비어있으면 일일 자동화는 실패하는 게 정상입니다 — 시트를 채우고 다시 눌러보세요.</div>
+    <div id="triggerButtons"></div>
+    <div class="result-box" id="runResult"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">5</span> 실행 이력 보기</h2>
+    <div class="desc">최근 실행 기록을 읽기 전용으로 확인합니다.</div>
+    <button class="secondary" onclick="loadRunHistory()">이력 새로고침</button>
+    <div id="runHistoryList" style="margin-top:12px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">6</span> 설정값 확인</h2>
+    <div class="desc">구글시트 "설정" 탭에 지금 채워진 값을 읽기 전용으로 보여줍니다. 위 3단계에서 GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY / GOOGLE_SHEETS_SPREADSHEET_ID를 이미 입력했다면 그대로 재사용합니다(다시 입력할 필요 없음). API 키 같은 비밀값은 여기 안 보입니다 — GitHub Secrets는 한 번 등록하면 값을 다시 읽어올 수 없는 구조라(GitHub 자체 제약), "등록됨/안 됨"만 위 로그로 확인 가능합니다.</div>
+    <button class="secondary" onclick="loadSettingsView()">설정값 불러오기</button>
+    <div id="settingsView" style="margin-top:12px;"></div>
+  </div>
+
+  <footer>이 페이지는 GitHub API·구글 인증 서버만 직접 호출합니다 · 소스는 이 저장소의 setup-wizard.html<br/>⚠️ 구매자 전용 자료입니다 — 무단 배포·재판매 금지 · 문의는 크몽 메시지로</footer>
+</div>
+
+<script>
+let repoOwner = null, repoName = null;
+
+const WORKFLOWS = [
+  { file: 'daily-pipeline.yml', label: '일일 자동화' },
+  { file: 'comment-reply.yml', label: '댓글 자동응대' },
+  { file: 'diagnose.yml', label: '자가진단' },
+  { file: 'publish-scheduled.yml', label: '예약 발행' },
+  { file: 'refresh-tokens.yml', label: '토큰 갱신' },
+];
+
+function pat() { return document.getElementById('pat').value.trim(); }
+
+function onProviderChange() {
+  const val = document.getElementById('aiProvider').value;
+  document.querySelectorAll('[data-provider-key]').forEach(function (div) {
+    div.style.display = div.getAttribute('data-provider-key') === val ? '' : 'none';
+  });
+}
+
+function renderTriggerButtons() {
+  const wrap = document.getElementById('triggerButtons');
+  wrap.innerHTML = WORKFLOWS.map(function (w) {
+    return '<button class="secondary" style="margin-right:8px;" onclick="triggerRun(\'' + w.file + '\',\'' + w.label + '\')">' + w.label + ' 실행</button>';
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function openLongLivedTokenPage(platform) {
+  const appSecret = document.getElementById('ttExchAppSecret').value.trim();
+  const shortToken = document.getElementById('ttExchShortToken').value.trim();
+  if (!appSecret || !shortToken) { alert('앱 시크릿과 방금 받은 토큰을 먼저 입력하세요.'); return; }
+  const host = platform === 'instagram' ? 'graph.instagram.com' : 'graph.threads.net';
+  const grant = platform === 'instagram' ? 'ig_exchange_token' : 'th_exchange_token';
+  const url = `https://${host}/access_token?grant_type=${grant}&client_secret=${encodeURIComponent(appSecret)}&access_token=${encodeURIComponent(shortToken)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+async function gh(path, opts = {}) {
+  const res = await fetch('https://api.github.com' + path, {
+    ...opts,
+    headers: {
+      'Authorization': 'Bearer ' + pat(),
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  return res;
+}
+
+async function createRepo() {
+  const box = document.getElementById('repoResult');
+  const btn = document.getElementById('btnCreateRepo');
+  const name = document.getElementById('repoName').value.trim();
+  if (!pat()) { alert('먼저 1단계 GitHub 토큰을 입력하세요.'); return; }
+  if (!name) { alert('저장소 이름을 입력하세요.'); return; }
+
+  btn.disabled = true; btn.textContent = '만드는 중...';
+  try {
+    const meRes = await gh('/user');
+    if (!meRes.ok) throw new Error('토큰이 올바르지 않습니다(' + meRes.status + ')');
+    const me = await meRes.json();
+
+    const res = await gh('/repos/gatilman/sosang-sns-kit/generate', {
+      method: 'POST',
+      body: JSON.stringify({ owner: me.login, name, private: true, include_all_branches: false }),
+    });
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('템플릿 저장소가 아직 안 보입니다 — 판매자가 협업자로 초대해드릴 때까지 기다려주세요(결제 확인 후 초대됩니다). 이미 초대받으셨다면 GitHub 알림에서 초대를 수락했는지 확인해주세요.');
+      }
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || ('생성 실패(' + res.status + ')'));
+    }
+    const repo = await res.json();
+    repoOwner = repo.owner.login; repoName = repo.name;
+    box.className = 'result-box ok show';
+    box.textContent = '✅ 저장소 생성 완료: ' + repo.full_name + ' — 이제 아래 3단계로 진행하세요.';
+  } catch (e) {
+    box.className = 'result-box err show';
+    box.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '저장소 만들기';
+  }
+}
+
+async function getPublicKey() {
+  const res = await gh('/repos/' + repoOwner + '/' + repoName + '/actions/secrets/public-key');
+  if (!res.ok) throw new Error('공개키 조회 실패(' + res.status + ')');
+  return res.json();
+}
+
+async function encryptSecret(value, keyBase64) {
+  await sodium.ready;
+  const keyBytes = sodium.from_base64(keyBase64, sodium.base64_variants.ORIGINAL);
+  const messageBytes = sodium.from_string(value);
+  const encryptedBytes = sodium.crypto_box_seal(messageBytes, keyBytes);
+  return sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
+}
+
+function logLine(text, cls) {
+  const log = document.getElementById('uploadLog');
+  log.style.display = 'block';
+  const span = document.createElement('div');
+  if (cls) span.className = cls;
+  span.textContent = text;
+  log.appendChild(span);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function uploadSecrets() {
+  const btn = document.getElementById('btnUpload');
+  const log = document.getElementById('uploadLog');
+  log.innerHTML = ''; log.style.display = 'block';
+
+  if (!pat()) { alert('1단계 GitHub 토큰을 입력하세요.'); return; }
+  if (!repoOwner || !repoName) { alert('2단계에서 먼저 저장소를 만들어주세요(이미 만든 저장소가 있으면 새로고침 없이 이 페이지에서 다시 만들지 말고, 저장소 이름/소유자를 콘솔에서 직접 지정하는 기능은 아직 없습니다 — 2단계부터 진행해주세요).'); return; }
+
+  btn.disabled = true; btn.textContent = '업로드 중...';
+  try {
+    const { key, key_id } = await getPublicKey();
+    const inputs = document.querySelectorAll('[data-secret]');
+    let done = 0, skipped = 0, failed = 0;
+
+    for (const el of inputs) {
+      const name = el.getAttribute('data-secret');
+      const value = el.value.trim();
+      if (!value) { skipped++; continue; }
+      try {
+        const encrypted_value = await encryptSecret(value, key);
+        const res = await gh('/repos/' + repoOwner + '/' + repoName + '/actions/secrets/' + name, {
+          method: 'PUT',
+          body: JSON.stringify({ encrypted_value, key_id }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        logLine('✅ ' + name, 'ok');
+        done++;
+      } catch (e) {
+        logLine('❌ ' + name + ' — ' + e.message, 'err');
+        failed++;
+      }
+    }
+    logLine('--- 완료: ' + done + '개 업로드, ' + skipped + '개 건너뜀(빈칸), ' + failed + '개 실패 ---', failed ? 'warn' : 'ok');
+  } catch (e) {
+    logLine('❌ 전체 실패: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Secrets 전부 업로드';
+  }
+}
+
+async function triggerRun(workflowFile, label) {
+  const box = document.getElementById('runResult');
+  if (!pat() || !repoOwner || !repoName) { alert('먼저 1~2단계를 진행하세요.'); return; }
+  try {
+    const res = await gh('/repos/' + repoOwner + '/' + repoName + '/actions/workflows/' + workflowFile + '/dispatches', {
+      method: 'POST',
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    box.className = 'result-box ' + (res.ok ? 'ok' : 'err') + ' show';
+    box.textContent = res.ok
+      ? '✅ "' + label + '" 실행 트리거 완료 — https://github.com/' + repoOwner + '/' + repoName + '/actions 에서 결과를 확인하세요.'
+      : '❌ 트리거 실패(HTTP ' + res.status + ') — 저장소/Secrets가 준비됐는지 확인하세요.';
+  } catch (e) {
+    box.className = 'result-box err show';
+    box.textContent = '❌ ' + e.message;
+  }
+}
+
+async function loadRunHistory() {
+  const box = document.getElementById('runHistoryList');
+  if (!pat() || !repoOwner || !repoName) { alert('먼저 1~2단계를 진행하세요.'); return; }
+  box.innerHTML = '불러오는 중...';
+  try {
+    const res = await gh('/repos/' + repoOwner + '/' + repoName + '/actions/runs?per_page=20');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const runs = data.workflow_runs || [];
+    if (!runs.length) { box.innerHTML = '<div class="hint">아직 실행 기록이 없습니다.</div>'; return; }
+    box.innerHTML = runs.slice(0, 15).map(function (run) {
+      const wf = WORKFLOWS.find(function (w) { return run.path && run.path.indexOf(w.file) !== -1; });
+      const label = wf ? wf.label : (run.name || run.path || '알 수 없음');
+      const status = run.status !== 'completed'
+        ? '🔄 진행중'
+        : run.conclusion === 'success' ? '✅ 성공'
+        : run.conclusion === 'failure' ? '❌ 실패'
+        : '⚠️ ' + escapeHtml(run.conclusion);
+      const time = run.run_started_at ? new Date(run.run_started_at).toLocaleString('ko-KR') : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);">' +
+        '<span>' + status + ' <b>' + escapeHtml(label) + '</b> <span style="color:var(--muted);">' + escapeHtml(time) + '</span></span>' +
+        '<a href="' + run.html_url + '" target="_blank" style="color:var(--accent);font-size:12px;white-space:nowrap;">보기 →</a>' +
+        '</div>';
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="result-box err show">❌ ' + e.message + '</div>';
+  }
+}
+
+function base64url(input) {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function pemToArrayBuffer(pem) {
+  const cleaned = pem.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s+/g, '');
+  const binary = atob(cleaned);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function getGoogleAccessToken(clientEmail, privateKeyPem) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: clientEmail,
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+  const signingInput = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(claim));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(privateKeyPem),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput));
+  const jwt = signingInput + '.' + base64url(signature);
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') + '&assertion=' + encodeURIComponent(jwt),
+  });
+  if (!res.ok) throw new Error('구글 인증 실패(HTTP ' + res.status + ') — GOOGLE_CLIENT_EMAIL/GOOGLE_PRIVATE_KEY 값을 확인하세요.');
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function loadSettingsView() {
+  const box = document.getElementById('settingsView');
+  const clientEmail = document.querySelector('[data-secret="GOOGLE_CLIENT_EMAIL"]').value.trim();
+  const privateKey = document.querySelector('[data-secret="GOOGLE_PRIVATE_KEY"]').value.trim();
+  const sheetId = document.querySelector('[data-secret="GOOGLE_SHEETS_SPREADSHEET_ID"]').value.trim();
+  if (!clientEmail || !privateKey || !sheetId) {
+    alert('위 3단계에서 GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY / GOOGLE_SHEETS_SPREADSHEET_ID를 먼저 입력하세요.');
+    return;
+  }
+  box.innerHTML = '불러오는 중...';
+  try {
+    const accessToken = await getGoogleAccessToken(clientEmail, privateKey);
+    const range = encodeURIComponent('설정!A2:C200');
+    const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range, {
+      headers: { Authorization: 'Bearer ' + accessToken },
+    });
+    if (!res.ok) throw new Error('시트 조회 실패(HTTP ' + res.status + ') — 서비스계정이 이 시트에 공유돼 있는지 확인하세요.');
+    const data = await res.json();
+    const rows = (data.values || []).filter(function (r) { return r[0]; });
+    if (!rows.length) { box.innerHTML = '<div class="hint">"설정" 탭이 비어있습니다.</div>'; return; }
+    box.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">' +
+      rows.map(function (r) {
+        return '<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted);white-space:nowrap;vertical-align:top;">' + escapeHtml(r[0]) + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + escapeHtml(r[1] || '(비어있음)') + '</td></tr>';
+      }).join('') +
+      '</table>';
+  } catch (e) {
+    box.innerHTML = '<div class="result-box err show">❌ ' + e.message + '</div>';
+  }
+}
+
+renderTriggerButtons();
+</script>
+</body>
+</html>
